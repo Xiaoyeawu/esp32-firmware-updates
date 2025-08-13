@@ -17,13 +17,13 @@ int resetButtonHandleTime = 60 * 1000;
 bool updateNeeded = false;
 
 unsigned long lastCheck = 0;
-unsigned long checkInterval = 5 * 1000; // 1 hour in ms
+unsigned long checkInterval = 1 * 60* 1000; // 1 hour in ms
 String lastAvailableVersion = "";
 
 WiFiManager wm;
 
 // Your HTTPS server hosting firmware (use RAW GitHub URLs)
-const char* currentVersion = "1.0.0.15"; // Only changes when you compile a new bin
+const char* currentVersion = "1.0.0.16"; // Only changes when you compile a new bin
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 String firmwareURL = String(firmwareBaseURL) + "firmware.bin";
@@ -132,19 +132,30 @@ if ((now - lastCheck >= checkInterval || lastCheck == 0) && WiFi.status() == WL_
     }
 }
 
+// // Wait for user confirmation
+// if (updateNeeded && Serial.available()) {
+//     String cmd = Serial.readStringUntil('\n');
+//     cmd.trim();
+//     if (cmd.equalsIgnoreCase("")) {
+//         Serial.println("[OTA] Starting update...");
+//         performFirmwareUpdate(firmwareURL.c_str());
+//         updateNeeded = false;
+//     } else {
+//         Serial.println("[OTA] Update canceled.");
+//         updateNeeded = false;
+//     }
+// }
 // Wait for user confirmation
-if (updateNeeded && Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-    if (cmd.equalsIgnoreCase("")) {
-        Serial.println("[OTA] Starting update...");
-        performFirmwareUpdate(firmwareURL.c_str());
-        updateNeeded = false;
-    } else {
-        Serial.println("[OTA] Update canceled.");
-        updateNeeded = false;
-    }
-}
+  if (updateNeeded) {
+      if (true) {
+          Serial.println("[OTA] Starting update...");
+          performFirmwareUpdate(firmwareURL.c_str());
+          updateNeeded = false;
+      } else {
+          Serial.println("[OTA] Update canceled.");
+          updateNeeded = false;
+      }
+  }
 
 
   if (resettingWiFi) {
