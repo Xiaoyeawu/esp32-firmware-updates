@@ -5,6 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <Update.h>
 #include <base64.h>
+#include <ArduinoJson.h>
 
 #define LED_BUILTIN_PIN 2
 #define BUTTON_BUILTIN_PIN 0
@@ -31,7 +32,7 @@ const char* logFilePath = "docs/logs/device_log.txt"; // Path in repo
 const char* branch = "main";
 
 // Your HTTPS server hosting firmware (use RAW GitHub URLs)
-const char* currentVersion = "1.0.0.17"; // Only changes when you compile a new bin
+const char* currentVersion = "1.0.0.18"; // Only changes when you compile a new bin
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 String firmwareURL = String(firmwareBaseURL) + "firmware.bin";
@@ -69,32 +70,81 @@ bool isNewerVersion(String current, String available) {
   return available.toInt() > current.toInt();
 }
 
-// Function to upload log to GitHub
+// // Function to upload log to GitHub
+// void uploadLog(String logContent) {
+//   HTTPClient http;
+
+//   // GitHub API URL
+//   String url = "https://api.github.com/repos/" + String(repoOwner) + "/" + String(repoName) + "/contents/" + logFilePath;
+
+//   // Encode log to Base64
+//   String encodedLog = base64::encode(logContent);
+
+//   // JSON payload
+//   String payload = "{\"message\":\"Update log\",\"content\":\"" + encodedLog + "\",\"branch\":\"" + branch + "\"}";
+
+//   http.begin(url);
+//   http.addHeader("Authorization", "token " + String(githubToken));
+//   http.addHeader("User-Agent", "ESP32");
+//   http.addHeader("Content-Type", "application/json");
+
+//   int httpResponseCode = http.PUT(payload);
+
+//   Serial.print("[GitHub] Response code: ");
+//   Serial.println(httpResponseCode);
+//   if (httpResponseCode > 0) {
+//     Serial.println(http.getString());
+//   }
+
+//   http.end();
+// }
+
 void uploadLog(String logContent) {
   HTTPClient http;
-
-  // GitHub API URL
+  
   String url = "https://api.github.com/repos/" + String(repoOwner) + "/" + String(repoName) + "/contents/" + logFilePath;
 
-  // Encode log to Base64
+  // Step 1: Get current SHA if file exists
+  String fileSha = "";
+  http.begin(url);
+  http.addHeader("Authorization", "token " + String(githubToken));
+  http.addHeader("User-Agent", "ESP32");
+  int getCode = http.GET();
+  
+  if (getCode == 200) { // File exists
+    DynamicJsonDocument doc(2048);
+    DeserializationError err = deserializeJson(doc, http.getString());
+    if (!err && doc.containsKey("sha")) {
+      fileSha = doc["sha"].as<String>();
+      Serial.println("[GitHub] Existing file SHA: " + fileSha);
+    }
+  } else {
+    Serial.println("[GitHub] File not found, will create new.");
+  }
+  http.end();
+
+  // Step 2: Encode log to Base64
   String encodedLog = base64::encode(logContent);
 
-  // JSON payload
-  String payload = "{\"message\":\"Update log\",\"content\":\"" + encodedLog + "\",\"branch\":\"" + branch + "\"}";
+  // Step 3: Build payload
+  String payload = "{\"message\":\"Update log\",\"content\":\"" + encodedLog + "\",\"branch\":\"" + branch + "\"";
+  if (fileSha != "") {
+    payload += ",\"sha\":\"" + fileSha + "\""; // Include SHA if updating
+  }
+  payload += "}";
 
+  // Step 4: PUT request to create/update file
   http.begin(url);
   http.addHeader("Authorization", "token " + String(githubToken));
   http.addHeader("User-Agent", "ESP32");
   http.addHeader("Content-Type", "application/json");
 
   int httpResponseCode = http.PUT(payload);
-
   Serial.print("[GitHub] Response code: ");
   Serial.println(httpResponseCode);
   if (httpResponseCode > 0) {
     Serial.println(http.getString());
   }
-
   http.end();
 }
 
