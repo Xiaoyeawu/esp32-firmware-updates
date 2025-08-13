@@ -1,0 +1,2 @@
+ESP32 started successfully at 2348ms
+Firmware version : 1.0.0.18
