@@ -1,1 +1,2 @@
-Log entry at 1320022ms
+ESP32 started successfully at 2346ms
+Firmware version : 1.0.0.18
