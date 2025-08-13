@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Update.h>
+#include <base64.h>
 
 #define LED_BUILTIN_PIN 2
 #define BUTTON_BUILTIN_PIN 0
@@ -22,8 +23,15 @@ String lastAvailableVersion = "";
 
 WiFiManager wm;
 
+// GitHub info
+const char* githubToken = "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"; // Personal Access Token
+const char* repoOwner = "Xiaoyeawu";
+const char* repoName = "esp32-firmware-updates";
+const char* logFilePath = "docs/logs/device_log.txt"; // Path in repo
+const char* branch = "main";
+
 // Your HTTPS server hosting firmware (use RAW GitHub URLs)
-const char* currentVersion = "1.0.0.16"; // Only changes when you compile a new bin
+const char* currentVersion = "1.0.0.17"; // Only changes when you compile a new bin
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 String firmwareURL = String(firmwareBaseURL) + "firmware.bin";
@@ -61,6 +69,34 @@ bool isNewerVersion(String current, String available) {
   return available.toInt() > current.toInt();
 }
 
+// Function to upload log to GitHub
+void uploadLog(String logContent) {
+  HTTPClient http;
+
+  // GitHub API URL
+  String url = "https://api.github.com/repos/" + String(repoOwner) + "/" + String(repoName) + "/contents/" + logFilePath;
+
+  // Encode log to Base64
+  String encodedLog = base64::encode(logContent);
+
+  // JSON payload
+  String payload = "{\"message\":\"Update log\",\"content\":\"" + encodedLog + "\",\"branch\":\"" + branch + "\"}";
+
+  http.begin(url);
+  http.addHeader("Authorization", "token " + String(githubToken));
+  http.addHeader("User-Agent", "ESP32");
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.PUT(payload);
+
+  Serial.print("[GitHub] Response code: ");
+  Serial.println(httpResponseCode);
+  if (httpResponseCode > 0) {
+    Serial.println(http.getString());
+  }
+
+  http.end();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -104,6 +140,7 @@ void setup() {
   // checkForUpdate();
   Serial.print("Firmware version : ");
   Serial.println(currentVersion);
+  uploadLog("ESP32 started successfully at " + String(millis()) + "ms\n" + "Firmware version : " + currentVersion);
 }
 
 void loop() {
@@ -196,6 +233,13 @@ if ((now - lastCheck >= checkInterval || lastCheck == 0) && WiFi.status() == WL_
       Serial.println("[BUTTON] Released before 3s.");
     }
     buttonPressStart = 0;
+  }
+  
+  // Example: append logs every 10 seconds
+  static unsigned long lastLog = 0;
+  if (millis() - lastLog > 60*1000) {
+    lastLog = millis();
+    uploadLog("Log entry at " + String(millis()) + "ms\n");
   }
 }
 
