@@ -25,14 +25,14 @@ String lastAvailableVersion = "";
 WiFiManager wm;
 
 // GitHub info
-const char* githubToken = "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"; // Personal Access Token
+const char* githubToken = "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"; // Personal Access Token
 const char* repoOwner = "Xiaoyeawu";
 const char* repoName = "esp32-firmware-updates";
 const char* logFilePath = "docs/logs/device_log.txt"; // Path in repo
 const char* branch = "main";
 
 // Your HTTPS server hosting firmware (use RAW GitHub URLs)
-const char* currentVersion = "1.0.0.18"; // Only changes when you compile a new bin
+const char* currentVersion = "1.0.0.19"; // Only changes when you compile a new bin
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 String firmwareURL = String(firmwareBaseURL) + "firmware.bin";
@@ -167,6 +167,7 @@ void setup() {
   // If WiFi connects quickly, skip AP mode
   WiFi.mode(WIFI_STA);
   WiFi.begin();
+  WiFi.setAutoReconnect(true);
   unsigned long startAttemptTime = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 3000) {
     delay(100);
@@ -198,7 +199,7 @@ void loop() {
   wm.process(); // Keep WiFiManager running in non-blocking mode
 
   unsigned long now = millis();
-if ((now - lastCheck >= checkInterval || lastCheck == 0) && WiFi.status() == WL_CONNECTED) {
+  if ((now - lastCheck >= checkInterval || lastCheck == 0) && WiFi.status() == WL_CONNECTED) {
     lastCheck = now;
     
     String availableVersion = getAvailableVersion();
@@ -217,22 +218,22 @@ if ((now - lastCheck >= checkInterval || lastCheck == 0) && WiFi.status() == WL_
     } else {
         Serial.println("[OTA] No newer firmware available.");
     }
-}
+  }
 
-// // Wait for user confirmation
-// if (updateNeeded && Serial.available()) {
-//     String cmd = Serial.readStringUntil('\n');
-//     cmd.trim();
-//     if (cmd.equalsIgnoreCase("")) {
-//         Serial.println("[OTA] Starting update...");
-//         performFirmwareUpdate(firmwareURL.c_str());
-//         updateNeeded = false;
-//     } else {
-//         Serial.println("[OTA] Update canceled.");
-//         updateNeeded = false;
-//     }
-// }
-// Wait for user confirmation
+  // // Wait for user confirmation
+  // if (updateNeeded && Serial.available()) {
+  //     String cmd = Serial.readStringUntil('\n');
+  //     cmd.trim();
+  //     if (cmd.equalsIgnoreCase("")) {
+  //         Serial.println("[OTA] Starting update...");
+  //         performFirmwareUpdate(firmwareURL.c_str());
+  //         updateNeeded = false;
+  //     } else {
+  //         Serial.println("[OTA] Update canceled.");
+  //         updateNeeded = false;
+  //     }
+  // }
+  // Wait for user confirmation
   if (updateNeeded) {
       if (true) {
           Serial.println("[OTA] Starting update...");
