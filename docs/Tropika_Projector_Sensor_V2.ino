@@ -11,11 +11,11 @@
 #define ADC_RESOLUTION 4095
 #define SENSOR_SENSITIVITY 100   // mV/A for ACS712-20A
 
-#define FW_VERSION "1.1"   // current firmware version
+#define FW_VERSION "1.2"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
-String firmwareURL = String(firmwareBaseURL) + String(FW_VERSION) + "/firmware.bin";
+String firmwareURL = String(firmwareBaseURL) + String(FW_VERSION) + "/Tropika_Projector_Sensor_V2.ino.bin";
 
 
 ACS712 ACS(CURRENT_PIN, ADC_REF_VOLTAGE, ADC_RESOLUTION, SENSOR_SENSITIVITY);
