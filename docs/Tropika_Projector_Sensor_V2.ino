@@ -14,7 +14,7 @@
 #define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
 #define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
 
-#define FW_VERSION "1.4"   // current firmware version
+#define FW_VERSION "1.5"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -220,6 +220,7 @@ void setup() {
   Serial.begin(115200);
   delay(10);
 
+  homeSpan.setControlPin(FACTORY_RESET_PIN);
   homeSpan.setSketchVersion(FW_VERSION);
   homeSpan.setStatusPin(2);
   homeSpan.enableWebLog(1);
@@ -246,7 +247,7 @@ void setup() {
   new UpdateTrigger();
   new UpdateAvailableSensor();
 
-  xTaskCreatePinnedToCore(factoryResetTask, "FactoryReset", 4096, NULL, 1, NULL, 0);
+  //xTaskCreatePinnedToCore(factoryResetTask, "FactoryReset", 4096, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(acsSensorTask, "acsSensorTask", 8192, NULL, 1, NULL, 0);
 }
 
