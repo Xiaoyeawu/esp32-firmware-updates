@@ -11,7 +11,7 @@
 #define ADC_RESOLUTION 4095
 #define SENSOR_SENSITIVITY 100   // mV/A for ACS712-20A
 
-#define FW_VERSION "1.1"   // current firmware version
+#define FW_VERSION "1.3"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -141,47 +141,6 @@ void httpUpdate() {
   }
 }
 
-
-
-// void httpUpdate() {
-//   WiFiClientSecure client;
-//   client.setInsecure();
-//   HTTPClient https;
-//   Serial.println("[OTA] Downloading firmware..." + firmwareURL);
-
-//   if (https.begin(client, firmwareURL)) {
-//     int httpCode = https.GET();
-//     if (httpCode == HTTP_CODE_OK) {
-//       int contentLength = https.getSize();
-//       if (contentLength > 0) {
-//         bool canBegin = Update.begin(contentLength);
-//         if (canBegin) {
-//           WiFiClient* stream = https.getStreamPtr();
-//           size_t written = Update.writeStream(*stream);
-//           if (written == contentLength) {
-//             Serial.println("[OTA] Written : " + String(written));
-//           } else {
-//             Serial.println("[OTA] Written only : " + String(written) + "/" + String(contentLength));
-//           }
-//           if (Update.end()) {
-//             if (Update.isFinished()) {
-//               Serial.println("[OTA] Update successful! Rebooting...");
-//               ESP.restart();
-//             } else {
-//               Serial.println("[OTA] Update failed.");
-//             }
-//           } else {
-//             Serial.printf("[OTA] Error Occurred. Error #: %d\n", Update.getError());
-//           }
-//         }
-//       }
-//     } else {
-//       Serial.printf("[OTA] HTTP Error: %d\n", httpCode);
-//     }
-//     https.end();
-//   }
-// }
-
 // ---------- Trigger OTA via Switch ----------
 struct UpdateTrigger : Service::Switch {
   SpanCharacteristic *updateNow;
@@ -234,6 +193,7 @@ void setup() {
   Serial.begin(115200);
   delay(10);
 
+  homeSpan.setSketchVersion(FW_VERSION);
   homeSpan.setStatusPin(2);
   homeSpan.enableWebLog(1);
   //homeSpan.enableOTA("19980719");
