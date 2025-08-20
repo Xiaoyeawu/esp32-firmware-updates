@@ -11,7 +11,10 @@
 #define ADC_RESOLUTION 4095
 #define SENSOR_SENSITIVITY 100   // mV/A for ACS712-20A
 
-#define FW_VERSION "1.3"   // current firmware version
+#define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
+#define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
+
+#define FW_VERSION "1.4"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -32,6 +35,30 @@ unsigned long lastSampleTime = 0;
 
 int sampleCount = 0;
 double sumOfSquares = 0.0;
+
+void factoryResetTask(void *pvParameters) {
+  pinMode(FACTORY_RESET_PIN, INPUT_PULLUP); // built-in button is usually active-low
+
+  for (;;) {
+    static unsigned long pressStart = 0;
+    if (digitalRead(FACTORY_RESET_PIN) == LOW) {  // button pressed
+      if (pressStart == 0) pressStart = millis();
+      else if (millis() - pressStart >= RESET_HOLD_TIME) {
+        Serial.println("Factory reset triggered!");
+        
+        // Optional: reset HomeSpan config
+        homeSpan.processSerialCommand("F");  // clears HomeKit pairing & WiFi
+        delay(1000);
+
+        ESP.restart();  // reboot ESP32
+      }
+    } else {
+      pressStart = 0; // button released
+    }
+
+    vTaskDelay(50 / portTICK_PERIOD_MS); // check every 50ms
+  }
+}
 
 void acsSensorTask (void *pvParameters) {
   for (;;){
@@ -219,6 +246,7 @@ void setup() {
   new UpdateTrigger();
   new UpdateAvailableSensor();
 
+  xTaskCreatePinnedToCore(factoryResetTask, "FactoryReset", 4096, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore(acsSensorTask, "acsSensorTask", 8192, NULL, 1, NULL, 0);
 }
 
