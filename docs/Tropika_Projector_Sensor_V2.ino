@@ -11,7 +11,7 @@
 #define ADC_RESOLUTION 4095
 #define SENSOR_SENSITIVITY 100   // mV/A for ACS712-20A
 
-#define FW_VERSION "1.2"   // current firmware version
+#define FW_VERSION "1.1"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -87,60 +87,100 @@ void acsSensorTask (void *pvParameters) {
   }
 }
 
-String latestVersion = "";
+String latestVersion = "";  // global
 
 bool checkUpdateAvailable() {
   HTTPClient http;
-  http.begin(versionURL);
+  http.begin(versionURL);        // points to version.txt
   int httpCode = http.GET();
+
   if (httpCode == 200) {
     latestVersion = http.getString();
-    latestVersion.trim();
+    latestVersion.trim();        // remove whitespace/newlines
     Serial.println("Latest FW: " + latestVersion);
-    return (latestVersion != FW_VERSION);   // true if different
+    return (latestVersion != FW_VERSION);
   }
+
   return false;
 }
 
+String getFirmwareURL() {
+  return String(firmwareBaseURL) + latestVersion + "/Tropika_Projector_Sensor_V2.ino.bin";
+}
+
 void httpUpdate() {
+  if (latestVersion == "") return;   // sanity check
+
+  String fwURL = getFirmwareURL();
+  Serial.println("[OTA] Downloading firmware from: " + fwURL);
+
   WiFiClientSecure client;
-  client.setInsecure();   // skip certificate validation for HTTPS
+  client.setInsecure();
 
   HTTPClient https;
-  Serial.println("[OTA] Downloading firmware...");
-
-  if (https.begin(client, firmwareURL)) {
+  if (https.begin(client, fwURL)) {
     int httpCode = https.GET();
     if (httpCode == HTTP_CODE_OK) {
       int contentLength = https.getSize();
       if (contentLength > 0) {
-        bool canBegin = Update.begin(contentLength);
-        if (canBegin) {
-          WiFiClient* stream = https.getStreamPtr();
-          size_t written = Update.writeStream(*stream);
-          if (written == contentLength) {
-            Serial.println("[OTA] Written : " + String(written));
+        if (Update.begin(contentLength)) {
+          size_t written = Update.writeStream(*https.getStreamPtr());
+          Serial.println("[OTA] Written: " + String(written));
+          if (Update.end() && Update.isFinished()) {
+            Serial.println("[OTA] Update successful! Rebooting...");
+            ESP.restart();
           } else {
-            Serial.println("[OTA] Written only : " + String(written) + "/" + String(contentLength));
-          }
-          if (Update.end()) {
-            if (Update.isFinished()) {
-              Serial.println("[OTA] Update successful! Rebooting...");
-              ESP.restart();
-            } else {
-              Serial.println("[OTA] Update failed.");
-            }
-          } else {
-            Serial.printf("[OTA] Error Occurred. Error #: %d\n", Update.getError());
+            Serial.println("[OTA] Update failed.");
           }
         }
       }
     } else {
-      Serial.printf("[OTA] HTTP Error: %d\n", httpCode);
+      Serial.println("[OTA] HTTP Error: " + String(httpCode));
     }
     https.end();
   }
 }
+
+
+
+// void httpUpdate() {
+//   WiFiClientSecure client;
+//   client.setInsecure();
+//   HTTPClient https;
+//   Serial.println("[OTA] Downloading firmware..." + firmwareURL);
+
+//   if (https.begin(client, firmwareURL)) {
+//     int httpCode = https.GET();
+//     if (httpCode == HTTP_CODE_OK) {
+//       int contentLength = https.getSize();
+//       if (contentLength > 0) {
+//         bool canBegin = Update.begin(contentLength);
+//         if (canBegin) {
+//           WiFiClient* stream = https.getStreamPtr();
+//           size_t written = Update.writeStream(*stream);
+//           if (written == contentLength) {
+//             Serial.println("[OTA] Written : " + String(written));
+//           } else {
+//             Serial.println("[OTA] Written only : " + String(written) + "/" + String(contentLength));
+//           }
+//           if (Update.end()) {
+//             if (Update.isFinished()) {
+//               Serial.println("[OTA] Update successful! Rebooting...");
+//               ESP.restart();
+//             } else {
+//               Serial.println("[OTA] Update failed.");
+//             }
+//           } else {
+//             Serial.printf("[OTA] Error Occurred. Error #: %d\n", Update.getError());
+//           }
+//         }
+//       }
+//     } else {
+//       Serial.printf("[OTA] HTTP Error: %d\n", httpCode);
+//     }
+//     https.end();
+//   }
+// }
 
 // ---------- Trigger OTA via Switch ----------
 struct UpdateTrigger : Service::Switch {
