@@ -177,8 +177,8 @@ struct UpdateAvailableSensor : Service::MotionSensor {
   }
 
   void loop() override {
-    static unsigned long lastCheck = 0;
-    if (millis() - lastCheck > 3600000) {  // check every hour
+    static unsigned long lastCheck = 3600000;
+    if (millis() - lastCheck > 10000) {  // check every hour
       lastCheck = millis();
       if (checkUpdateAvailable()) {
         motionChar->setVal(true);  // update available
