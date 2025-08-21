@@ -17,7 +17,7 @@ WiFiManager wm;
 #define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
 #define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
 
-#define FW_VERSION "1.7"   // current firmware version
+#define FW_VERSION "1.9"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -162,6 +162,7 @@ void httpUpdate() {
             ESP.restart();
           } else {
             Serial.println("[OTA] Update failed.");
+            vTaskResume(acsTaskHandle);
           }
         }
       }
@@ -216,6 +217,7 @@ struct UpdateAvailableSensor : Service::MotionSensor {
         Serial.println("Update available!");
       } else {
         motionChar->setVal(false);
+        Serial.println("No Update available!");
       }
     }
   }
