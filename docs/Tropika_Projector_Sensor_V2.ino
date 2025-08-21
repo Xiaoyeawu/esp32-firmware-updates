@@ -5,6 +5,9 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <WiFiClientSecure.h>
+#include <WiFiManager.h>
+
+WiFiManager wm;
 
 #define CURRENT_PIN 32
 #define ADC_REF_VOLTAGE 3.3
@@ -14,12 +17,13 @@
 #define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
 #define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
 
-#define FW_VERSION "1.5"   // current firmware version
+#define FW_VERSION "1.7"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
 String firmwareURL = String(firmwareBaseURL) + String(FW_VERSION) + "/Tropika_Projector_Sensor_V2.ino.bin";
 
+TaskHandle_t acsTaskHandle = NULL;
 
 ACS712 ACS(CURRENT_PIN, ADC_REF_VOLTAGE, ADC_RESOLUTION, SENSOR_SENSITIVITY);
 
@@ -45,10 +49,10 @@ void factoryResetTask(void *pvParameters) {
       if (pressStart == 0) pressStart = millis();
       else if (millis() - pressStart >= RESET_HOLD_TIME) {
         Serial.println("Factory reset triggered!");
-        
-        // Optional: reset HomeSpan config
+        wm.resetSettings();
         homeSpan.processSerialCommand("F");  // clears HomeKit pairing & WiFi
-        delay(1000);
+        Serial.println("Wifi has been reset...");
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
 
         ESP.restart();  // reboot ESP32
       }
@@ -62,7 +66,7 @@ void factoryResetTask(void *pvParameters) {
 
 void acsSensorTask (void *pvParameters) {
   for (;;){
-    while (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) {
       unsigned long nowMicros = micros();
 
       if (nowMicros - lastSampleTime >= sampleInterval) {
@@ -109,7 +113,7 @@ void acsSensorTask (void *pvParameters) {
         }
       }
 
-      vTaskDelay(1); // yield
+      vTaskDelay(10 / portTICK_PERIOD_MS); // yield
     }
   }
 }
@@ -179,6 +183,7 @@ struct UpdateTrigger : Service::Switch {
 
   boolean update() override {
     if (updateNow->getNewVal()) {
+      vTaskSuspend(acsTaskHandle);
       Serial.println("User confirmed update!");
       httpUpdate();         // run OTA update
       triggerReset = true;  // mark for reset
@@ -218,19 +223,20 @@ struct UpdateAvailableSensor : Service::MotionSensor {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("\n[BOOT] ESP32 WROVER starting...");
+  xTaskCreatePinnedToCore(factoryResetTask, "FactoryReset", 4096, NULL, 1, NULL, 0);
   delay(10);
 
-  homeSpan.setControlPin(FACTORY_RESET_PIN);
+  //homeSpan.setControlPin(FACTORY_RESET_PIN);
   homeSpan.setSketchVersion(FW_VERSION);
   homeSpan.setStatusPin(2);
-  homeSpan.enableWebLog(1);
-  //homeSpan.enableOTA("19980719");
+  homeSpan.setLogLevel(2);
+  homeSpan.enableWebLog(80);
+  homeSpan.setApPassword("12345678");
+  homeSpan.setApSSID("Projector Current");
+  homeSpan.enableAutoStartAP();
+  //homeSpan.enableOTA("19980719");  
   homeSpan.begin(Category::Sensors,"Projector Current");
-
-  ACS.autoMidPoint();        // auto-calibrate zero offset
-  ACS.suppressNoise(true);   // filter noise
-  Serial.println("ACS auto-calibrate zero offset. ACS suppress noise = true");
-
 
   new SpanAccessory();
   new Service::AccessoryInformation();
@@ -246,12 +252,34 @@ void setup() {
 
   new UpdateTrigger();
   new UpdateAvailableSensor();
+  
+  ACS.autoMidPoint();        // auto-calibrate zero offset
+  ACS.suppressNoise(true);   // filter noise
+  Serial.println("ACS auto-calibrate zero offset. ACS suppress noise = true");
 
-  //xTaskCreatePinnedToCore(factoryResetTask, "FactoryReset", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(acsSensorTask, "acsSensorTask", 8192, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(acsSensorTask, "acsSensorTask", 8192, NULL, 1, &acsTaskHandle, 0);
+  vTaskSuspend(acsTaskHandle);
 }
 
-
-void loop() {
+void loop() { 
   homeSpan.poll();
+
+  static bool wasConnected = false;
+  bool nowConnected = (WiFi.status() == WL_CONNECTED);
+
+  if (nowConnected && !wasConnected) {
+    // WiFi just connected → resume task
+    if (acsTaskHandle != NULL) {
+      vTaskResume(acsTaskHandle);
+      Serial.println("[WiFi] Connected → resumed acsSensorTask");
+    }
+  } else if (!nowConnected && wasConnected) {
+    // WiFi just disconnected → suspend task
+    if (acsTaskHandle != NULL) {
+      vTaskSuspend(acsTaskHandle);
+      Serial.println("[WiFi] Disconnected → suspended acsSensorTask");
+    }
+  }
+
+  wasConnected = nowConnected;
 }
