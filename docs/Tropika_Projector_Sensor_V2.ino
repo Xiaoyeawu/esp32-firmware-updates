@@ -17,7 +17,7 @@ WiFiManager wm;
 #define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
 #define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
 
-#define FW_VERSION "1.9"   // current firmware version
+#define FW_VERSION "1.10"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -38,7 +38,28 @@ const unsigned long sampleInterval = 200; // in microseconds (~5kHz)
 unsigned long lastSampleTime = 0;
 
 int sampleCount = 0;
-double sumOfSquares = 0.0;
+double sumOfSquares = 0.0; 
+
+float AV[5] = {0};
+int head = 0;
+int filled = 0;
+float rollingSum = 0;
+
+void avCalculator(float i) {
+  head = (head + 1) % 5;
+
+  rollingSum -= AV[head]; // remove old value
+  AV[head] = i;
+  rollingSum += i;
+
+  if (filled < 5) filled++;
+}
+
+float getAverage() {
+  return rollingSum / filled;
+}
+
+
 
 void factoryResetTask(void *pvParameters) {
   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP); // built-in button is usually active-low
