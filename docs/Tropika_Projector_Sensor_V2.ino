@@ -17,7 +17,7 @@ WiFiManager wm;
 #define FACTORY_RESET_PIN 0     // ESP32 built-in BOOT button
 #define RESET_HOLD_TIME 10000   // 10 seconds in milliseconds
 
-#define FW_VERSION "2"   // current firmware version
+#define FW_VERSION "2.1"   // current firmware version
 const char* versionURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/version.txt";
 const char* firmwareBaseURL = "https://raw.githubusercontent.com/Xiaoyeawu/esp32-firmware-updates/main/docs/releases/";
 
@@ -118,8 +118,9 @@ void acsSensorTask (void *pvParameters) {
 
         // apply calibration factor if you need (keep at 1.0 until calibrated)
         float scaleFactor = 10.0; // your existing factor (tune/keep as needed)
-        float amps = rmsCurrent * scaleFactor;
-
+        float avCal = rmsCurrent * scaleFactor;
+        avCalculator(avCal);
+        float amps = getAverage();
         // update HomeKit every second
         if (millis() - lastUpdate >= updateInterval) {
           lastUpdate = millis();
@@ -170,7 +171,7 @@ void httpUpdate() {
   HTTPClient https;
   if (https.begin(client, fwURL)) {
     int httpCode = https.GET();
-    if (httpCode == HTTP_CODE_OK) {
+    if (httpCode == HTTP_CODE_OK) { 
       int contentLength = https.getSize();
       if (contentLength > 0) {
         if (Update.begin(contentLength)) {
